@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyHub - Mis Asignaturas</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="main-container">
+        <header class="main-header">
+            <h1 class="logo">StudyHub</h1>
+            <p>Selecciona una asignatura para empezar a estudiar.</p>
+        </header>
+
+        <div id="subjects-grid" class="cards-grid">
+            <!-- Las tarjetas de asignatura se cargarán aquí dinámicamente -->
+        </div>
+    </div>
+
+    <script src="js/data.js"></script> 
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const subjectsGrid = document.getElementById('subjects-grid');
+            if (!subjectsGrid) return;
+
+            let delay = 0;
+            for (const subjectKey in studyHubData) {
+                const subject = studyHubData[subjectKey];
+                const cardLink = document.createElement('a');
+                cardLink.className = 'card-link';
+                cardLink.href = `subject.html?subject=${subjectKey}`;
+                cardLink.style.animationDelay = `${delay}s`;
+
+                cardLink.innerHTML = `<h2><span class="card-icon">${subject.icon}</span>${subject.titulo}</h2>`;
+                subjectsGrid.appendChild(cardLink);
+                delay += 0.05;
+            }
+        });
+    </script>
+</body>
+</html>

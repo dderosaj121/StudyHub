@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temas</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="main-container">
+        <header class="topic-header">
+            <a href="index.html" class="back-button">&larr; Volver a Asignaturas</a>
+            <h1 id="subject-title">Cargando...</h1>
+        </header>
+
+        <div id="topics-grid" class="cards-grid">
+            <!-- Las tarjetas de temas se cargarán aquí -->
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const subjectKey = urlParams.get('subject');
+
+            if (!subjectKey || !studyHubData[subjectKey]) {
+                document.body.innerHTML = '<h1>Error: Asignatura no encontrada.</h1><a href="index.html">Volver</a>';
+                return;
+            }
+
+            const subjectData = studyHubData[subjectKey];
+            document.title = `Temas de ${subjectData.titulo}`;
+            document.getElementById('subject-title').innerHTML = `${subjectData.icon} ${subjectData.titulo}`;
+
+            if (subjectData.themeColor) {
+                document.documentElement.style.setProperty('--highlight-color', subjectData.themeColor);
+            }
+
+            const topicsGrid = document.getElementById('topics-grid');
+            const topics = subjectData.topics || {};
+            let topicCount = 0;
+            let delay = 0;
+
+            for (const topicKey in topics) {
+                topicCount++;
+                const topic = topics[topicKey];
+
+                const card = document.createElement('a');
+                card.className = 'topic-card';
+                card.href = `topic.html?subject=${subjectKey}&topic=${topicKey}`;
+                card.style.animationDelay = `${delay}s`;
+                
+                const stats = JSON.parse(localStorage.getItem(`studyhub-stats-${topicKey}`)) || {};
+                const lastReview = stats.date || 'Nunca';
+                const lastScore = stats.score || 0;
+                const lastScoreDisplay = stats.score ? `${stats.score}%` : 'N/A';
+
+                card.innerHTML = `
+                    <h3 class="topic-card-title">${topic.titulo}</h3>
+                    <p class="topic-card-description">${topic.descripcion || 'Sin descripción.'}</p>
+                    <div class="topic-card-progress">
+                        <div class="progress-bar" style="width: ${lastScore}%;"></div>
+                    </div>
+                    <div class="topic-card-stats">
+                        <span>Último Repaso: ${lastReview}</span>
+                        <span>Última Nota: ${lastScoreDisplay}</span>
+                    </div>
+                `;
+                topicsGrid.appendChild(card);
+                delay += 0.05;
+            }
+
+            if (topicCount === 0) {
+                topicsGrid.innerHTML = '<p>No hay temas para esta asignatura todavía.</p>';
+            }
+        });
+    </script>
+</body>
+</html>
