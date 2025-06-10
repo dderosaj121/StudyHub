@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estudiando...</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="main-container">
+        <header class="topic-header">
+            <a href="#" id="back-to-subject-link" class="back-button">&larr; Volver a Temas</a>
+            <h1 id="topic-title">Cargando...</h1>
+        </header>
+
+        <!-- CAMBIO: Añadido un span con la clase .nav-count a cada botón -->
+        <nav class="study-nav">
+            <button class="nav-button active" data-view="flashcards-view">
+                Flashcards <span class="nav-count" id="flashcards-count">0</span>
+            </button>
+            <button class="nav-button" data-view="test-view">
+                Test <span class="nav-count" id="test-count">0</span>
+            </button>
+            <button class="nav-button" data-view="active-recall-view">
+                Active Recall <span class="nav-count" id="recall-count">0</span>
+            </button>
+        </nav>
+
+        <div id="flashcards-view" class="view-container active">
+            <div id="fc-grid-container"></div>
+        </div>
+
+        <div id="test-view" class="view-container">
+            <div class="study-item-container">
+                <form id="test-form"></form>
+                <div class="test-footer">
+                    <button id="grade-test-btn" class="action-button">Calificar Test</button>
+                    <div id="test-results-summary" class="hidden"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="active-recall-view" class="view-container">
+            <div id="ar-container"></div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const subjectKey = urlParams.get('subject');
+            const topicKey = urlParams.get('topic');
+
+            if (!subjectKey || !topicKey || !studyHubData[subjectKey] || !studyHubData[subjectKey].topics[topicKey]) {
+                document.body.innerHTML = '<h1>Error: Tema no encontrado.</h1><a href="index.html">Volver</a>';
+                return;
+            }
+            
+            const subjectData = studyHubData[subjectKey];
+            const topicData = subjectData.topics[topicKey];
+            const flashcards = topicData.flashcardData || [];
+            const quizQuestions = topicData.quizData || [];
+            
+            document.title = `Estudiando: ${topicData.titulo}`;
+            document.getElementById('topic-title').textContent = topicData.titulo;
+            document.getElementById('back-to-subject-link').href = `subject.html?subject=${subjectKey}`;
+
+            if (subjectData.themeColor) {
+                document.documentElement.style.setProperty('--highlight-color', subjectData.themeColor);
+            }
+
+            // CAMBIO: Lógica para actualizar los contadores
+            document.getElementById('flashcards-count').textContent = flashcards.length;
+            document.getElementById('test-count').textContent = quizQuestions.length;
+            document.getElementById('recall-count').textContent = flashcards.length;
+
+
+            // --- El resto del script permanece igual ---
+            const navButtons = document.querySelectorAll(".nav-button");
+            const views = document.querySelectorAll(".view-container");
+            navButtons.forEach(button => {
+                button.addEventListener("click", () => {
+                    navButtons.forEach(btn => btn.classList.remove("active"));
+                    button.classList.add("active");
+                    views.forEach(view => view.classList.toggle("active", view.id === button.dataset.view));
+                });
+            });
+
+            function renderFlashcardsGrid() {
+                const container = document.getElementById('fc-grid-container');
+                if (flashcards.length === 0) {
+                    container.innerHTML = "<p>No hay flashcards para este tema.</p>"; return;
+                }
+                container.innerHTML = flashcards.map(card => `
+                    <div class="study-item-container">
+                        <div class="fc-scene-grid">
+                            <div class="fc-container-grid">
+                                <div class="fc-face fc-face--front"><p>${card.q}</p></div>
+                                <div class="fc-face fc-face--back"><p>${card.a}</p></div>
+                            </div>
+                        </div>
+                    </div>`).join('');
+                document.querySelectorAll('.fc-container-grid').forEach(card => card.addEventListener('click', () => card.classList.toggle('is-flipped')));
+            }
+
+            const testForm = document.getElementById('test-form');
+            const gradeButton = document.getElementById('grade-test-btn');
+            const resultsSummary = document.getElementById('test-results-summary');
+
+            function renderTest() {
+                 if (quizQuestions.length === 0) {
+                    testForm.innerHTML = "<p>No hay preguntas para este test.</p>";
+                    gradeButton.style.display = 'none'; return;
+                }
+                let html = quizQuestions.map((q, index) => {
+                    const optionsHtml = q.o.map((optionText, i) => {
+                        const optionLetter = 'ABCD'[i];
+                        return `<input type="radio" name="question-${index}" id="q${index}o${i}" value="${optionLetter}"><label for="q${index}o${i}" class="option-button">${optionText}</label>`;
+                    }).join('');
+                    return `<div class="quiz-question-group"><p>${index + 1}. ${q.q}</p><div class="test-options">${optionsHtml}</div></div>`;
+                }).join('');
+                testForm.innerHTML = html;
+            }
+            
+            gradeButton.addEventListener('click', () => {
+                let score = 0;
+                quizQuestions.forEach((q, index) => {
+                    const optionsContainer = testForm.querySelector(`input[name="question-${index}"]`).closest('.test-options');
+                    const selectedRadio = optionsContainer.querySelector('input:checked');
+                    
+                    optionsContainer.querySelectorAll('label').forEach(label => label.classList.add('disabled'));
+                    const correctLabel = optionsContainer.querySelector(`label[for="q${index}o${q.a}"]`);
+                    if(correctLabel) correctLabel.classList.add('correct');
+
+                    if (selectedRadio) {
+                        const selectedLabel = optionsContainer.querySelector(`label[for="${selectedRadio.id}"]`);
+                        if (selectedRadio.value === q.a) {
+                            score++;
+                        } else {
+                           if(selectedLabel) selectedLabel.classList.add('incorrect');
+                        }
+                    }
+                });
+                const total = quizQuestions.length;
+                const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+                resultsSummary.innerHTML = `<h2>Resultados</h2><p>Tu puntuación: ${score} de ${total} (${percentage}%)</p>`;
+                resultsSummary.classList.remove('hidden');
+                gradeButton.disabled = true;
+                const stats = { score: percentage, date: new Date().toLocaleDateString('es-ES') };
+                localStorage.setItem(`studyhub-stats-${topicKey}`, JSON.stringify(stats));
+            });
+
+            const arContainer = document.getElementById('ar-container');
+            let ar_currentDeck = [];
+            let ar_failedCards = [];
+            let ar_currentIndex = 0;
+
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            function initActiveRecall() {
+                if (flashcards.length === 0) {
+                    arContainer.innerHTML = "<p>No hay flashcards para este tema.</p>"; return;
+                }
+                arContainer.innerHTML = `
+                    <div class="ar-welcome">
+                        <h2>Modo Active Recall</h2>
+                        <p>Se te presentará cada flashcard. Gírala para ver la respuesta y luego marca si la sabías o no. Repetirás las que falles hasta que las sepas todas.</p>
+                        <div class="ar-start-buttons">
+                            <button id="ar-start-btn" class="action-button">Comenzar</button>
+                            <button id="ar-shuffle-start-btn" class="action-button">Mezclar y Empezar</button>
+                        </div>
+                    </div>`;
+                document.getElementById('ar-start-btn').addEventListener('click', () => startNewArSession(false));
+                document.getElementById('ar-shuffle-start-btn').addEventListener('click', () => startNewArSession(true));
+            }
+
+            function startNewArSession(shuffle = false) {
+                ar_currentDeck = [...flashcards];
+                if (shuffle) {
+                    shuffleArray(ar_currentDeck);
+                }
+                ar_failedCards = [];
+                ar_currentIndex = 0;
+                renderActiveRecallCard();
+            }
+
+            function renderActiveRecallCard() {
+                if (ar_currentIndex >= ar_currentDeck.length) {
+                    handleArSessionEnd(); return;
+                }
+                const card = ar_currentDeck[ar_currentIndex];
+                arContainer.innerHTML = `
+                    <p class="ar-progress-tracker">Tarjeta ${ar_currentIndex + 1} de ${ar_currentDeck.length}</p>
+                    <div class="ar-card-container">
+                        <div class="fc-scene-grid">
+                            <div class="fc-container-grid">
+                                <div class="fc-face fc-face--front"><p>${card.q}</p></div>
+                                <div class="fc-face fc-face--back"><p>${card.a}</p></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ar-controls hidden">
+                        <button id="ar-dknow-btn" class="ar-button ar-button-dknow">No sabía (1)</button>
+                        <button id="ar-know-btn" class="ar-button ar-button-know">Sabía (2)</button>
+                    </div>
+                    <small class="ar-shortcut-info">Usa la <strong>BARRA ESPACIADORA</strong> para girar la tarjeta.</small>
+                `;
+                const fcContainer = arContainer.querySelector('.fc-container-grid');
+                const controls = arContainer.querySelector('.ar-controls');
+                const shortcutInfo = arContainer.querySelector('.ar-shortcut-info');
+                fcContainer.addEventListener('click', () => {
+                    fcContainer.classList.add('is-flipped');
+                    controls.classList.remove('hidden');
+                    shortcutInfo.classList.add('hidden');
+                }, { once: true });
+                document.getElementById('ar-know-btn').addEventListener('click', () => handleArAnswer(true));
+                document.getElementById('ar-dknow-btn').addEventListener('click', () => handleArAnswer(false));
+            }
+
+            function handleArAnswer(knewIt) {
+                if (!knewIt) {
+                    ar_failedCards.push(ar_currentDeck[ar_currentIndex]);
+                }
+                ar_currentIndex++;
+                renderActiveRecallCard();
+            }
+
+            function handleArSessionEnd() {
+                if (ar_failedCards.length === 0) {
+                    arContainer.innerHTML = `<div class="ar-welcome"><h2>🎉 ¡Sesión Completada! 🎉</h2><p>¡Has repasado todas las tarjetas con éxito!</p><button id="ar-restart-btn" class="action-button">Volver a Empezar</button></div>`;
+                    document.getElementById('ar-restart-btn').addEventListener('click', () => initActiveRecall());
+                } else {
+                    arContainer.innerHTML = `<div class="ar-welcome"><h2>¡Buen trabajo!</h2><p>Ahora repasemos las <strong>${ar_failedCards.length}</strong> tarjetas que no sabías.</p><button id="ar-continue-btn" class="action-button">Continuar Repaso</button></div>`;
+                    document.getElementById('ar-continue-btn').addEventListener('click', () => {
+                        ar_currentDeck = [...ar_failedCards];
+                        shuffleArray(ar_currentDeck);
+                        ar_failedCards = [];
+                        ar_currentIndex = 0;
+                        renderActiveRecallCard();
+                    });
+                }
+            }
+            
+            document.addEventListener('keydown', (e) => {
+                if(document.querySelector('#active-recall-view.active')) {
+                    const card = document.querySelector('.fc-container-grid');
+                    if (e.code === 'Space' && card && !card.classList.contains('is-flipped')) {
+                        e.preventDefault();
+                        card.click();
+                    } else if (card && card.classList.contains('is-flipped')) {
+                        if (e.key === '1' || e.key === 'j') {
+                            document.getElementById('ar-dknow-btn').click();
+                        } else if (e.key === '2' || e.key === 'k') {
+                            document.getElementById('ar-know-btn').click();
+                        }
+                    }
+                }
+            });
+
+            renderFlashcardsGrid();
+            renderTest();
+            initActiveRecall();
+        });
+    </script>
+</body>
+</html>
